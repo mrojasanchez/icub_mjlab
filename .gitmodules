@@ -1,0 +1,3 @@
+[submodule "src/icub_mjlab/assets"]
+	path = src/icub_mjlab/assets
+	url = https://github.com/CAMADA-UTFSM/icub_mj_model.git

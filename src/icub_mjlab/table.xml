@@ -1,0 +1,19 @@
+<mujoco model="table">
+  <asset>
+    <texture file="assets/textures/ceramic.png" type="2d" name="tex-ceramic" />
+    <material name="table_ceramic" reflectance="0.0" shininess="0.0" specular="0.2" texrepeat="1 1" texture="tex-ceramic" />
+    <texture file="assets/textures/steel-brushed.png" type="cube" name="tex-steel-brushed" />
+    <material name="table_legs_metal" reflectance="0.8" shininess="0.8" texrepeat="1 1" texture="tex-steel-brushed" />
+  </asset>
+  <worldbody>
+    <body name="table" pos="-0.6 0 0.575" euler="0 0 3.14159265" mocap="true">
+      <geom pos="0 0 0" size="0.4 0.4 0.025" type="box" group="0" name="table_collision" friction="1 0.005 0.0001" />
+      <geom pos="0 0 0" size="0.4 0.4 0.025" type="box" conaffinity="0" contype="0" group="1" name="table_visual" material="table_ceramic" />
+      <site pos="0 0 0.025" name="table_top" size="0.001 0.001 0.001" rgba="0 0 0 0" />
+      <geom pos="0.3 0.3 -0.2875" size="0.025 0.2875" type="cylinder" conaffinity="0" contype="0" group="1" name="table_leg1_visual" material="table_legs_metal" />
+      <geom pos="-0.3 0.3 -0.2875" size="0.025 0.2875" type="cylinder" conaffinity="0" contype="0" group="1" name="table_leg2_visual" material="table_legs_metal" />
+      <geom pos="-0.3 -0.3 -0.2875" size="0.025 0.2875" type="cylinder" conaffinity="0" contype="0" group="1" name="table_leg3_visual" material="table_legs_metal" />
+      <geom pos="0.3 -0.3 -0.2875" size="0.025 0.2875" type="cylinder" conaffinity="0" contype="0" group="1" name="table_leg4_visual" material="table_legs_metal" />
+    </body>
+  </worldbody>
+</mujoco>
