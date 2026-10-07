@@ -13,6 +13,7 @@ dependencies = [
 
 [project.scripts]
 icub-mjlab = "icub_mjlab:main"
+train-icub = "icub_mjlab.scripts.train:main"
 
 [project.entry-points."mjlab.tasks"]
 icub_mjlab = "icub_mjlab"
