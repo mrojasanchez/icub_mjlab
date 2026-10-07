@@ -10,6 +10,7 @@ This repository implements the cube manipulation and lifting task (`Mjlab-Lift-C
 
 - **Operating System:** Linux (tested on Ubuntu 22.04 / 24.04).
 - **GPU:** NVIDIA GPU with CUDA support (e.g., RTX 30/40/50 series).
+- **Git LFS:** [Git Large File Storage](https://git-lfs.com/) installed (required to pull `.stl` 3D CAD mesh assets).
 - **Package Manager:** [uv](https://docs.astral.sh/uv/) installed.
 - **Framework:** `mjlab` workspace configured.
 
@@ -17,18 +18,27 @@ This repository implements the cube manipulation and lifting task (`Mjlab-Lift-C
 
 ## 📦 Installation
 
-1. **Clone this repository with submodules:**
+1. **Install Git LFS (if not already installed):**
+   ```bash
+   sudo apt install git-lfs
+   git lfs install
+   ```
+
+2. **Clone this repository with submodules:**
    ```bash
    git clone --recurse-submodules https://github.com/mrojasanchez/icub_mjlab.git
    cd icub_mjlab
    ```
 
-   > **Note:** If you already cloned without submodules, initialize them with:
+   > **Important (Git LFS Mesh Files):**
+   > The robot meshes (`.stl`) in `src/icub_mjlab/assets` are tracked using Git LFS. If you clone without Git LFS installed, the `.stl` files will only be text pointers (~130 bytes) and simulation will fail to load mesh geometry.
+   > If you already cloned without Git LFS, initialize submodules and fetch the binary mesh files with:
    > ```bash
    > git submodule update --init --recursive
+   > git -C src/icub_mjlab/assets lfs pull
    > ```
 
-2. **Install environment and dependencies using `uv`:**
+3. **Install environment and dependencies using `uv`:**
    ```bash
    uv sync
    uv pip install -e .
@@ -117,23 +127,102 @@ By default, training metrics and neural network checkpoints (`.pt`) are automati
 
 ---
 
-### 4. Custom Overrides and Resuming Checkpoints
+### 4. Periodic Video Logging to Weights & Biases
 
-You can override any hyperparameter from the CLI:
+You can periodically record policy rollouts during training and have them automatically uploaded to the Weights & Biases dashboard:
+
+- `--video`: Enables headless offscreen video recording.
+- `--video-interval <steps>`: Environment step frequency for recordings. In RSL-RL, each learning iteration executes `num_steps_per_env = 24` steps:
+  - Every **50 iterations**: `--video-interval 1200` ($50 \times 24 = 1200$).
+  - Every **1000 iterations**: `--video-interval 24000` ($1000 \times 24 = 24000$).
+- `--video-length <steps>`: Length of the recorded video in steps (e.g., `250` steps = 5 seconds of simulated time at 50 Hz).
+
+**Example (record video every 1000 iterations):**
+```bash
+uv run train-icub \
+  --preset recommended \
+  --wandb-project icub-dextrah \
+  --run-name dextrah_exp_01 \
+  --video \
+  --video-interval 24000 \
+  --video-length 250
+```
+
+> **Note:** Recorded MP4 videos are saved locally to `logs/rsl_rl/.../videos/train/` and automatically synced to the Weights & Biases dashboard under the **Media / Video** panel with an interactive timeline scrubber across training iterations.
+
+---
+
+### 5. Custom Overrides and Resuming Checkpoints
+
+You can override hyperparameters from the CLI or resume training at any point:
 
 - **Override iterations, save interval, or target GPU:**
   ```bash
   uv run train-icub --preset recommended --max-iterations 20000 --save-interval 100 --gpu-id 0
   ```
 
-- **Resume training from a local checkpoint:**
+- **Resume training from the latest local checkpoint:**
+  ```bash
+  uv run train-icub --preset recommended --resume
+  ```
+
+- **Resume training from a specific local checkpoint file:**
   ```bash
   uv run train-icub --preset recommended --resume --load-checkpoint model_2000.pt
+  ```
+
+- **Resume training downloading directly from Weights & Biases:**
+  ```bash
+  uv run train-icub --preset recommended --resume --wandb-run-path "entity/icub-dextrah/run_id" --wandb-checkpoint-name model_2000.pt
   ```
 
 - **Standard mjlab training command (alternative):**
   ```bash
   uv run train Mjlab-Lift-Cube-iCub
+  ```
+
+---
+
+## 🔍 Policy Evaluation and Playback
+
+Once training is complete (or to inspect intermediate checkpoints), evaluate and visualize the trained policy in the interactive MuJoCo viewer using the `play` CLI:
+
+### 1. Play from a Local Checkpoint
+Load a specific model checkpoint to inspect behavior in real-time:
+```bash
+uv run play Mjlab-Lift-Cube-iCub --checkpoint-file logs/rsl_rl/dextrah_teacher_fgp/<run_folder>/model_10000.pt
+```
+
+### 2. Play Directly from Weights & Biases
+Visualize any run logged to W&B without needing local checkpoint files:
+```bash
+uv run play Mjlab-Lift-Cube-iCub \
+  --wandb-run-path entity/icub-dextrah/run_id \
+  --wandb-checkpoint-name model_10000.pt
+```
+
+### 3. Evaluation and Visualization Options
+
+- **Interactive Viewer Backends:**
+  - Native GLFW viewer (default, high-performance):
+    ```bash
+    uv run play Mjlab-Lift-Cube-iCub --checkpoint-file <path_to_model.pt> --viewer native
+    ```
+  - Web-based [Viser](https://github.com/nerfstudio-project/viser) visualizer (browser-accessible):
+    ```bash
+    uv run play Mjlab-Lift-Cube-iCub --checkpoint-file <path_to_model.pt> --viewer viser
+    ```
+
+- **Multi-Environment Visualization:**
+  Evaluate policy robustness across multiple parallel environments simultaneously:
+  ```bash
+  uv run play Mjlab-Lift-Cube-iCub --checkpoint-file <path_to_model.pt> --num-envs 16
+  ```
+
+- **Record Evaluation Videos:**
+  Render and save high-resolution evaluation videos to disk (`<log_dir>/videos/play/`):
+  ```bash
+  uv run play Mjlab-Lift-Cube-iCub --checkpoint-file <path_to_model.pt> --video --video-length 500
   ```
 
 ---
