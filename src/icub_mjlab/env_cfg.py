@@ -440,8 +440,8 @@ def make_lift_cube_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   )
 
   sim_cfg = SimulationCfg(
-    nconmax=500,
-    njmax=2000,
+    nconmax=128,
+    njmax=600,
     mujoco=MujocoCfg(
       timestep=0.005,
       iterations=10,
