@@ -76,10 +76,35 @@ _ICUB_ARTICULATION = EntityArticulationInfoCfg(
 def _extract_home_joint_pos() -> dict[str, float]:
     spec = mujoco.MjSpec.from_file(str(_ICUB_XML))
     model = spec.compile()
-    return {
+    pos_dict = {
         j.name: float(model.key("home").qpos[model.joint(j.name).qposadr[0]])
         for j in spec.joints
     }
+    # Configure right hand to open pose with finger spread (r_hand_finger = 1.0)
+    # Thumb: oppose = 1.0, proximal = 0.2, distal tendon = 0.2 (joint 2 + joint 3 = 0.1 + 0.1)
+    pos_dict["r_hand_thumb_0_joint"] = 1.0
+    pos_dict["r_hand_thumb_1_joint"] = 0.2
+    pos_dict["r_hand_thumb_2_joint"] = 0.1
+    pos_dict["r_hand_thumb_3_joint"] = 0.1
+    # Fingers open (flexion = 0.0)
+    pos_dict["r_hand_index_1_joint"] = 0.0
+    pos_dict["r_hand_index_2_joint"] = 0.0
+    pos_dict["r_hand_index_3_joint"] = 0.0
+    pos_dict["r_hand_middle_0_joint"] = 0.0
+    pos_dict["r_hand_middle_1_joint"] = 0.0
+    pos_dict["r_hand_middle_2_joint"] = 0.0
+    pos_dict["r_hand_middle_3_joint"] = 0.0
+    pos_dict["r_hand_ring_1_joint"] = 0.0
+    pos_dict["r_hand_ring_2_joint"] = 0.0
+    pos_dict["r_hand_ring_3_joint"] = 0.0
+    pos_dict["r_hand_little_1_joint"] = 0.0
+    pos_dict["r_hand_little_2_joint"] = 0.0
+    pos_dict["r_hand_little_3_joint"] = 0.0
+    # Finger abduction joints set so r_hand_finger_tendon = 1.0
+    pos_dict["r_hand_index_0_joint"] = 1.0 / 3.0
+    pos_dict["r_hand_ring_0_joint"] = -1.0 / 3.0
+    pos_dict["r_hand_little_0_joint"] = -1.0 / 3.0
+    return pos_dict
 
 _HOME_JOINT_POS = _extract_home_joint_pos()
 
