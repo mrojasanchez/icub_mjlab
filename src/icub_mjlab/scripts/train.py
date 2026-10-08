@@ -244,16 +244,22 @@ def parse_args() -> argparse.Namespace:
     help="Record evaluation/training videos periodically.",
   )
   parser.add_argument(
+    "--video-interval-iter",
+    type=int,
+    default=None,
+    help="Interval (learning iterations) between video recordings (e.g. 1000). Automatically converts to simulation steps.",
+  )
+  parser.add_argument(
     "--video-interval",
     type=int,
-    default=2000,
-    help="Interval (steps) between video recordings if --video is set.",
+    default=None,
+    help="Interval (simulation steps) between video recordings if --video is set.",
   )
   parser.add_argument(
     "--video-length",
     type=int,
-    default=200,
-    help="Length of video recording (steps).",
+    default=500,
+    help="Length of video recording in steps (500 steps = 10s full episode at 50 Hz).",
   )
   parser.add_argument(
     "--enable-nan-guard",
@@ -313,6 +319,9 @@ def print_training_banner(
   wandb_project: str,
   run_name: str,
   upload_model: bool,
+  video: bool,
+  video_interval: int,
+  video_length: int,
   gpu_id: int,
 ) -> None:
   total_batch = num_envs * num_steps
@@ -337,6 +346,11 @@ def print_training_banner(
     print(f"  PPO Desired KL            : {desired_kl}")
   print(f"  Max Learning Iterations   : {max_iterations:,}")
   print(f"  Save Checkpoint Interval  : Every {save_interval} iterations")
+  if video:
+    video_iters = video_interval // num_steps if num_steps > 0 else 0
+    print(f"  Video Recording           : Enabled (every {video_iters:,} iters / {video_interval:,} steps, len: {video_length} frames)")
+  else:
+    print(f"  Video Recording           : Disabled")
   print("-" * 80)
   if use_wandb:
     print(f"  Logger                    : Weights & Biases (W&B)")
@@ -375,6 +389,14 @@ def main() -> None:
   )
   vram_est = preset["estimated_vram"]
 
+  # Resolve video interval in simulation steps
+  if args.video_interval_iter is not None:
+    video_interval = args.video_interval_iter * num_steps
+  elif args.video_interval is not None:
+    video_interval = args.video_interval
+  else:
+    video_interval = 1000 * num_steps  # Default: every 1000 iterations
+
   # Generate run name if not explicitly set
   timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
   run_name = args.run_name or f"{args.preset}_{timestamp}"
@@ -402,6 +424,9 @@ def main() -> None:
     wandb_project=args.wandb_project,
     run_name=run_name,
     upload_model=args.upload_model,
+    video=args.video,
+    video_interval=video_interval,
+    video_length=args.video_length,
     gpu_id=args.gpu_id,
   )
 
@@ -461,7 +486,7 @@ def main() -> None:
     agent=rl_cfg,
     video=args.video,
     video_length=args.video_length,
-    video_interval=args.video_interval,
+    video_interval=video_interval,
     enable_nan_guard=args.enable_nan_guard,
     log_root=args.log_root,
     gpu_ids=[args.gpu_id],
