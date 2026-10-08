@@ -39,7 +39,7 @@ PRESETS: dict[str, dict[str, Any]] = {
     "num_envs": 64,
     "num_steps_per_env": 24,
     "num_mini_batches": 4,
-    "learning_rate": 1.0e-3,
+    "learning_rate": 3.0e-4,
     "num_learning_epochs": 5,
     "max_iterations": 10_000,
     "save_interval": 50,
@@ -49,8 +49,8 @@ PRESETS: dict[str, dict[str, Any]] = {
   "recommended": {
     "num_envs": 2048,
     "num_steps_per_env": 24,
-    "num_mini_batches": 4,
-    "learning_rate": 1.0e-3,
+    "num_mini_batches": 8,
+    "learning_rate": 3.0e-4,
     "num_learning_epochs": 5,
     "max_iterations": 10_000,
     "save_interval": 50,
@@ -61,7 +61,7 @@ PRESETS: dict[str, dict[str, Any]] = {
     "num_envs": 4096,
     "num_steps_per_env": 24,
     "num_mini_batches": 8,
-    "learning_rate": 1.0e-3,
+    "learning_rate": 3.0e-4,
     "num_learning_epochs": 5,
     "max_iterations": 10_000,
     "save_interval": 50,
@@ -180,6 +180,43 @@ def parse_args() -> argparse.Namespace:
     default=None,
     help="Override checkpoint saving interval (iterations) specified by preset.",
   )
+  parser.add_argument(
+    "--schedule",
+    type=str,
+    choices=["fixed", "adaptive"],
+    default="fixed",
+    help="PPO learning rate schedule ('fixed' or 'adaptive'). Defaults to 'fixed'.",
+  )
+  parser.add_argument(
+    "--desired-kl",
+    type=float,
+    default=0.02,
+    help="Desired KL divergence for adaptive schedule.",
+  )
+  parser.add_argument(
+    "--reward-goal-weight",
+    type=float,
+    default=None,
+    help="Override object_to_goal reward weight (default in env_cfg is 2.0).",
+  )
+  parser.add_argument(
+    "--reward-lift-weight",
+    type=float,
+    default=None,
+    help="Override object_lift reward weight (default in env_cfg is 1.5).",
+  )
+  parser.add_argument(
+    "--reward-curl-weight",
+    type=float,
+    default=None,
+    help="Override finger_curl regularization weight (default in env_cfg is 0.05).",
+  )
+  parser.add_argument(
+    "--reward-action-rate-weight",
+    type=float,
+    default=None,
+    help="Override action_rate_l2 penalty weight (default in env_cfg is -0.025).",
+  )
 
   # Training execution & environment options
   parser.add_argument(
@@ -267,6 +304,8 @@ def print_training_banner(
   num_mini_batches: int,
   lr: float,
   epochs: int,
+  schedule: str,
+  desired_kl: float,
   max_iterations: int,
   save_interval: int,
   vram_est: str,
@@ -293,7 +332,9 @@ def print_training_banner(
   print(f"  PPO Mini-batches          : {num_mini_batches} (size: {mini_batch_size:,} transitions)")
   print(f"  LSTM BPTT Sequences/Batch : {bptt_chunk_size} seqs of length {num_steps}")
   print(f"  PPO Epochs per Iteration  : {epochs}")
-  print(f"  PPO Learning Rate         : {lr:.2e}")
+  print(f"  PPO Learning Rate         : {lr:.2e} ({schedule})")
+  if schedule == "adaptive":
+    print(f"  PPO Desired KL            : {desired_kl}")
   print(f"  Max Learning Iterations   : {max_iterations:,}")
   print(f"  Save Checkpoint Interval  : Every {save_interval} iterations")
   print("-" * 80)
@@ -352,6 +393,8 @@ def main() -> None:
     num_mini_batches=num_mini_batches,
     lr=lr,
     epochs=epochs,
+    schedule=args.schedule,
+    desired_kl=args.desired_kl,
     max_iterations=max_iterations,
     save_interval=save_interval,
     vram_est=vram_est,
@@ -370,10 +413,22 @@ def main() -> None:
   env_cfg.scene.num_envs = num_envs
   env_cfg.seed = args.seed
 
+  # Apply optional reward overrides if specified
+  if args.reward_goal_weight is not None and "object_to_goal" in env_cfg.rewards:
+    env_cfg.rewards["object_to_goal"].weight = args.reward_goal_weight
+  if args.reward_lift_weight is not None and "object_lift" in env_cfg.rewards:
+    env_cfg.rewards["object_lift"].weight = args.reward_lift_weight
+  if args.reward_curl_weight is not None and "finger_curl" in env_cfg.rewards:
+    env_cfg.rewards["finger_curl"].weight = args.reward_curl_weight
+  if args.reward_action_rate_weight is not None and "action_rate_l2" in env_cfg.rewards:
+    env_cfg.rewards["action_rate_l2"].weight = args.reward_action_rate_weight
+
   # Apply RL algorithm configuration
   rl_cfg.algorithm.num_mini_batches = num_mini_batches
   rl_cfg.algorithm.learning_rate = lr
   rl_cfg.algorithm.num_learning_epochs = epochs
+  rl_cfg.algorithm.schedule = args.schedule
+  rl_cfg.algorithm.desired_kl = args.desired_kl
   rl_cfg.num_steps_per_env = num_steps
   rl_cfg.max_iterations = max_iterations
   rl_cfg.save_interval = save_interval

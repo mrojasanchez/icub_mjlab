@@ -236,24 +236,24 @@ def make_lift_cube_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     ),
     "object_to_goal": RewardTermCfg(
       func=icub_rewards.object_to_goal_dextrah_reward,
-      weight=1.0,
+      weight=2.0,
       params={"beta": 15.0},
     ),
     "object_lift": RewardTermCfg(
       func=icub_rewards.object_lift_dextrah_reward,
-      weight=1.0,
-      params={"beta": 50.0},
+      weight=1.5,
+      params={"beta": 80.0},
     ),
     "finger_curl": RewardTermCfg(
       func=icub_rewards.finger_curl_regularization_reward,
-      weight=1.0,
+      weight=0.05,
       params={"beta": 0.01},
     ),
     "left_arm_pose": RewardTermCfg(
       func=icub_rewards.frozen_arm_posture_reward,
-      weight=0.5,
+      weight=0.1,
     ),
-    "action_rate_l2": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.01),
+    "action_rate_l2": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.025),
   }
 
   # ==============================================================================
