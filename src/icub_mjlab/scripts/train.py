@@ -239,7 +239,7 @@ def parse_args() -> argparse.Namespace:
   )
   parser.add_argument(
     "--video",
-    action="store_true",
+    action=argparse.BooleanOptionalAction,
     default=False,
     help="Record evaluation/training videos periodically.",
   )
