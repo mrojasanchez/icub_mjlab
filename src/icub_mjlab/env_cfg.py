@@ -434,9 +434,9 @@ def make_lift_cube_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     origin_type=ViewerConfig.OriginType.ASSET_BODY,
     entity_name="robot",
     body_name="chest",
-    distance=2.2,
-    elevation=-10.0,
-    azimuth=150.0,
+    distance=9.0,
+    elevation=-3.0,
+    azimuth=-17.0,
   )
 
   sim_cfg = SimulationCfg(
