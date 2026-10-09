@@ -262,6 +262,12 @@ def parse_args() -> argparse.Namespace:
     help="Length of video recording in steps (500 steps = 10s full episode at 50 Hz).",
   )
   parser.add_argument(
+    "--video-final",
+    action=argparse.BooleanOptionalAction,
+    default=True,
+    help="Record a video of the final trained policy right before training completes (enabled by default when --video is set).",
+  )
+  parser.add_argument(
     "--enable-nan-guard",
     action="store_true",
     default=False,
@@ -320,6 +326,7 @@ def print_training_banner(
   run_name: str,
   upload_model: bool,
   video: bool,
+  video_final: bool,
   video_interval: int,
   video_length: int,
   gpu_id: int,
@@ -348,7 +355,8 @@ def print_training_banner(
   print(f"  Save Checkpoint Interval  : Every {save_interval} iterations")
   if video:
     video_iters = video_interval // num_steps if num_steps > 0 else 0
-    print(f"  Video Recording           : Enabled (every {video_iters:,} iters / {video_interval:,} steps, len: {video_length} frames)")
+    final_note = " + final policy" if video_final else ""
+    print(f"  Video Recording           : Enabled (every {video_iters:,} iters / {video_interval:,} steps{final_note}, len: {video_length} frames)")
   else:
     print(f"  Video Recording           : Disabled")
   print("-" * 80)
@@ -360,6 +368,64 @@ def print_training_banner(
   else:
     print(f"  Logger                    : TensorBoard (local only)")
   print("=" * 80 + "\n", flush=True)
+
+
+def setup_video_recording(
+  args: argparse.Namespace,
+  max_iterations: int,
+  num_steps: int,
+) -> None:
+  """Configure VideoRecorder to record periodic videos and a final policy video before training ends."""
+  if not args.video:
+    return
+
+  import mjlab.utils.wrappers.video_recorder as vr_mod
+
+  orig_init = vr_mod.VideoRecorder.__init__
+
+  # Calculate iteration and step for the final video
+  # Ensure the recording completes ~3 iterations before max_iterations so rsl_rl has time to upload it to W&B
+  steps_needed_iters = (args.video_length // num_steps) + 3
+  final_video_iter = max(0, max_iterations - steps_needed_iters)
+  final_video_start_step = final_video_iter * num_steps
+
+  def wrapped_init(
+    self,
+    env,
+    video_folder,
+    episode_trigger=None,
+    step_trigger=None,
+    video_length=None,
+    **kwargs,
+  ):
+    if step_trigger is not None and getattr(args, "video_final", True):
+      base_trigger = step_trigger
+      print(
+        f"[INFO] Final policy video recording scheduled at iteration {final_video_iter:,} "
+        f"(simulation step {final_video_start_step:,}).",
+        flush=True,
+      )
+
+      def combined_step_trigger(step: int) -> bool:
+        if base_trigger(step):
+          return True
+        if step == final_video_start_step:
+          return True
+        return False
+
+      step_trigger = combined_step_trigger
+
+    orig_init(
+      self,
+      env,
+      video_folder,
+      episode_trigger=episode_trigger,
+      step_trigger=step_trigger,
+      video_length=video_length,
+      **kwargs,
+    )
+
+  vr_mod.VideoRecorder.__init__ = wrapped_init
 
 
 def main() -> None:
@@ -425,6 +491,7 @@ def main() -> None:
     run_name=run_name,
     upload_model=args.upload_model,
     video=args.video,
+    video_final=args.video_final,
     video_interval=video_interval,
     video_length=args.video_length,
     gpu_id=args.gpu_id,
@@ -493,6 +560,9 @@ def main() -> None:
     wandb_run_path=args.wandb_run_path,
     wandb_checkpoint_name=args.wandb_checkpoint_name,
   )
+
+  # Configure video recording hooks (periodic + final policy video)
+  setup_video_recording(args, max_iterations=max_iterations, num_steps=num_steps)
 
   # Launch training loop
   launch_training(task_id=TASK_ID, args=train_cfg)

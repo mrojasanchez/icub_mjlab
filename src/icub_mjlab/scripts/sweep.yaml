@@ -14,14 +14,27 @@ parameters:
     value: 4000
   save-interval:
     value: 500
+  # Exploración continua de Learning Rate (escala logarítmica)
   learning-rate:
-    values: [2.0e-4, 3.0e-4, 5.0e-4]
+    distribution: log_uniform_values
+    min: 1.5e-4
+    max: 6.0e-4
+
+  # Exploración continua de pesos de recompensa
   reward-goal-weight:
-    values: [2.0, 3.5, 5.0]
+    distribution: uniform
+    min: 2.0
+    max: 6.0
+
   reward-lift-weight:
-    values: [1.5, 2.5, 4.0]
+    distribution: uniform
+    min: 1.5
+    max: 4.5
+
   reward-action-rate-weight:
-    values: [-0.012, -0.015, -0.02]
+    distribution: uniform
+    min: -0.025
+    max: -0.010
 
 # Comando que ejecutará el agente con video activado
 command:
