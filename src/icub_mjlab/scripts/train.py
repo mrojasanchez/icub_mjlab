@@ -41,8 +41,8 @@ PRESETS: dict[str, dict[str, Any]] = {
     "num_mini_batches": 4,
     "learning_rate": 3.0e-4,
     "num_learning_epochs": 5,
-    "max_iterations": 10_000,
-    "save_interval": 50,
+    "max_iterations": 4_000,
+    "save_interval": 1000,
     "estimated_vram": "~3 - 4 GB",
     "description": "Base/debug configuration for testing or low-memory GPUs (64 envs)",
   },
@@ -52,8 +52,8 @@ PRESETS: dict[str, dict[str, Any]] = {
     "num_mini_batches": 8,
     "learning_rate": 3.0e-4,
     "num_learning_epochs": 5,
-    "max_iterations": 10_000,
-    "save_interval": 50,
+    "max_iterations": 4_000,
+    "save_interval": 1000,
     "estimated_vram": "~16 - 18 GB",
     "description": "Recommended sweet-spot for RTX 5090 32GB (2048 envs, optimal stability & speed)",
   },
@@ -63,8 +63,8 @@ PRESETS: dict[str, dict[str, Any]] = {
     "num_mini_batches": 8,
     "learning_rate": 3.0e-4,
     "num_learning_epochs": 5,
-    "max_iterations": 10_000,
-    "save_interval": 50,
+    "max_iterations": 4_000,
+    "save_interval": 1000,
     "estimated_vram": "~26 - 28 GB",
     "description": "Maximum throughput for RTX 5090 32GB (4096 envs, 8 mini-batches for safe BPTT memory)",
   },
@@ -184,13 +184,13 @@ def parse_args() -> argparse.Namespace:
     "--schedule",
     type=str,
     choices=["fixed", "adaptive"],
-    default="fixed",
-    help="PPO learning rate schedule ('fixed' or 'adaptive'). Defaults to 'fixed'.",
+    default="adaptive",
+    help="PPO learning rate schedule ('fixed' or 'adaptive'). Defaults to 'adaptive'.",
   )
   parser.add_argument(
     "--desired-kl",
     type=float,
-    default=0.02,
+    default=0.015,
     help="Desired KL divergence for adaptive schedule.",
   )
   parser.add_argument(
@@ -241,7 +241,13 @@ def parse_args() -> argparse.Namespace:
     "--video",
     action=argparse.BooleanOptionalAction,
     default=False,
-    help="Record evaluation/training videos periodically.",
+    help="Record evaluation/training videos.",
+  )
+  parser.add_argument(
+    "--video-only-final",
+    action=argparse.BooleanOptionalAction,
+    default=True,
+    help="Record only the final policy video at the end of training (avoids exhausting W&B cloud storage with intermediate videos).",
   )
   parser.add_argument(
     "--video-interval-iter",
@@ -327,6 +333,7 @@ def print_training_banner(
   upload_model: bool,
   video: bool,
   video_final: bool,
+  video_only_final: bool,
   video_interval: int,
   video_length: int,
   gpu_id: int,
@@ -352,11 +359,14 @@ def print_training_banner(
   if schedule == "adaptive":
     print(f"  PPO Desired KL            : {desired_kl}")
   print(f"  Max Learning Iterations   : {max_iterations:,}")
-  print(f"  Save Checkpoint Interval  : Every {save_interval} iterations")
+  print(f"  Save Checkpoint Interval  : Every {save_interval} iterations (local disk)")
   if video:
-    video_iters = video_interval // num_steps if num_steps > 0 else 0
-    final_note = " + final policy" if video_final else ""
-    print(f"  Video Recording           : Enabled (every {video_iters:,} iters / {video_interval:,} steps{final_note}, len: {video_length} frames)")
+    if video_only_final:
+      print(f"  Video Recording           : Enabled (FINAL policy video only, len: {video_length} frames)")
+    else:
+      video_iters = video_interval // num_steps if num_steps > 0 else 0
+      final_note = " + final policy" if video_final else ""
+      print(f"  Video Recording           : Enabled (every {video_iters:,} iters / {video_interval:,} steps{final_note}, len: {video_length} frames)")
   else:
     print(f"  Video Recording           : Disabled")
   print("-" * 80)
@@ -364,7 +374,7 @@ def print_training_banner(
     print(f"  Logger                    : Weights & Biases (W&B)")
     print(f"  W&B Project               : {wandb_project}")
     print(f"  Run Display Name          : {run_name}")
-    print(f"  Model Upload to W&B       : {'Enabled (.pt checkpoints)' if upload_model else 'Disabled'}")
+    print(f"  Model Upload to W&B       : {'Enabled (Best & Final policy only)' if upload_model else 'Disabled'}")
   else:
     print(f"  Logger                    : TensorBoard (local only)")
   print("=" * 80 + "\n", flush=True)
@@ -375,7 +385,7 @@ def setup_video_recording(
   max_iterations: int,
   num_steps: int,
 ) -> None:
-  """Configure VideoRecorder to record periodic videos and a final policy video before training ends."""
+  """Configure VideoRecorder to record videos (final policy only by default to save storage)."""
   if not args.video:
     return
 
@@ -398,22 +408,35 @@ def setup_video_recording(
     video_length=None,
     **kwargs,
   ):
-    if step_trigger is not None and getattr(args, "video_final", True):
+    if step_trigger is not None:
       base_trigger = step_trigger
-      print(
-        f"[INFO] Final policy video recording scheduled at iteration {final_video_iter:,} "
-        f"(simulation step {final_video_start_step:,}).",
-        flush=True,
-      )
+      only_final = getattr(args, "video_only_final", True)
+      if only_final:
+        print(
+          f"[INFO] 🎥 Video recording configured for FINAL policy only at iteration {final_video_iter:,} "
+          f"(simulation step {final_video_start_step:,}). Periodic videos disabled.",
+          flush=True,
+        )
 
-      def combined_step_trigger(step: int) -> bool:
-        if base_trigger(step):
-          return True
-        if step == final_video_start_step:
-          return True
-        return False
+        def final_step_trigger(step: int) -> bool:
+          return step == final_video_start_step
 
-      step_trigger = combined_step_trigger
+        step_trigger = final_step_trigger
+      elif getattr(args, "video_final", True):
+        print(
+          f"[INFO] Final policy video recording scheduled at iteration {final_video_iter:,} "
+          f"(simulation step {final_video_start_step:,}).",
+          flush=True,
+        )
+
+        def combined_step_trigger(step: int) -> bool:
+          if base_trigger(step):
+            return True
+          if step == final_video_start_step:
+            return True
+          return False
+
+        step_trigger = combined_step_trigger
 
     orig_init(
       self,
@@ -492,6 +515,7 @@ def main() -> None:
     upload_model=args.upload_model,
     video=args.video,
     video_final=args.video_final,
+    video_only_final=args.video_only_final,
     video_interval=video_interval,
     video_length=args.video_length,
     gpu_id=args.gpu_id,

@@ -9,7 +9,7 @@ parameters:
   preset:
     value: maximum
   schedule:
-    value: fixed
+    value: adaptive
   max-iterations:
     value: 4000
   save-interval:
@@ -32,14 +32,12 @@ parameters:
     max: 4.5
 
 
-# Comando que ejecutará el agente con video activado
+# Comando que ejecutará el agente con video activado (solo video final)
 command:
   - uv
   - run
   - train-icub
   - --video
-  - --video-interval-iter
-  - 1000
   - --video-length
   - 500
   - ${args}
