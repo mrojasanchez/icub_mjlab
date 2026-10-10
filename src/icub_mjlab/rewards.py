@@ -60,8 +60,15 @@ def object_to_goal_dextrah_reward(
   command_name: str = "lift_height",
   object_name: str = "cube",
   beta: float = 15.0,
+  min_lift_height: float | None = 0.645,
 ) -> torch.Tensor:
-  """DextrAH goal reaching reward: r_obj_goal = exp(-beta * ||x_obj - x_goal||)."""
+  """DextrAH goal reaching reward with lifted gating.
+
+  r_obj_goal = 1(z_obj > min_lift_height) * exp(-beta * ||x_obj - x_goal||).
+  In DextrAH-G / DextrAH-RGB, goal transport is only rewarded when the object
+  has been lifted off the table surface, preventing the policy from hacking
+  reward by simply dragging the object across the table.
+  """
   obj: Entity = env.scene[object_name]
   command = cast(LiftingCommand, env.command_manager.get_term(command_name))
 
@@ -69,7 +76,11 @@ def object_to_goal_dextrah_reward(
   goal_pos = command.target_pos
 
   dist = torch.linalg.norm(obj_pos - goal_pos, dim=-1)
-  return torch.exp(-beta * dist)
+  rew = torch.exp(-beta * dist)
+  if min_lift_height is not None:
+    is_lifted = (obj_pos[:, 2] > min_lift_height).float()
+    rew = rew * is_lifted
+  return rew
 
 
 def object_lift_dextrah_reward(

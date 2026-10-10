@@ -237,23 +237,22 @@ def make_lift_cube_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     "object_to_goal": RewardTermCfg(
       func=icub_rewards.object_to_goal_dextrah_reward,
       weight=2.0,
-      params={"beta": 15.0},
+      params={"beta": 15.0, "min_lift_height": 0.645},
     ),
     "object_lift": RewardTermCfg(
       func=icub_rewards.object_lift_dextrah_reward,
       weight=1.5,
-      params={"beta": 80.0},
+      params={"beta": 50.0},
     ),
     "finger_curl": RewardTermCfg(
       func=icub_rewards.finger_curl_regularization_reward,
-      weight=0.05,
+      weight=1.0,
       params={"beta": 0.01},
     ),
     "left_arm_pose": RewardTermCfg(
       func=icub_rewards.frozen_arm_posture_reward,
-      weight=0.1,
+      weight=0.05,
     ),
-    "action_rate_l2": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.025),
   }
 
   # ==============================================================================
@@ -262,13 +261,48 @@ def make_lift_cube_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 
   terminations = {
     "time_out": TerminationTermCfg(func=mdp.time_out, time_out=True),
-    "ee_ground_collision": TerminationTermCfg(
-      func=manipulation_mdp.illegal_contact,
-      params={"sensor_name": "ee_ground_collision", "force_threshold": 20.0},
+    "cube_dropped": TerminationTermCfg(
+      func=mdp.root_height_below_minimum,
+      params={"minimum_height": 0.50, "asset_cfg": SceneEntityCfg("cube")},
     ),
   }
 
-  curriculum = {}
+  # ==============================================================================
+  # Curriculum Learning (DextrAH-RGB Two-Stage Reward Curriculum)
+  # ==============================================================================
+
+  curriculum = {
+    "hand_to_object_weight": CurriculumTermCfg(
+      func=mdp.reward_curriculum,
+      params={
+        "reward_name": "hand_to_object",
+        "stages": [
+          {"step": 0, "weight": 1.0},
+          {"step": 24_000, "weight": 0.5},
+        ],
+      },
+    ),
+    "object_lift_weight": CurriculumTermCfg(
+      func=mdp.reward_curriculum,
+      params={
+        "reward_name": "object_lift",
+        "stages": [
+          {"step": 0, "weight": 1.5},
+          {"step": 24_000, "weight": 2.0},
+        ],
+      },
+    ),
+    "object_to_goal_weight": CurriculumTermCfg(
+      func=mdp.reward_curriculum,
+      params={
+        "reward_name": "object_to_goal",
+        "stages": [
+          {"step": 0, "weight": 2.0},
+          {"step": 24_000, "weight": 3.0},
+        ],
+      },
+    ),
+  }
 
   # ==============================================================================
   # Events & Commands

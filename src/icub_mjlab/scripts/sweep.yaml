@@ -31,10 +31,6 @@ parameters:
     min: 1.5
     max: 4.5
 
-  reward-action-rate-weight:
-    distribution: uniform
-    min: -0.025
-    max: -0.010
 
 # Comando que ejecutará el agente con video activado
 command:
