@@ -40,7 +40,7 @@ PRESETS: dict[str, dict[str, Any]] = {
     "num_steps_per_env": 24,
     "num_mini_batches": 4,
     "learning_rate": 3.0e-4,
-    "num_learning_epochs": 5,
+    "num_learning_epochs": 3,
     "max_iterations": 4_000,
     "save_interval": 1000,
     "estimated_vram": "~3 - 4 GB",
@@ -51,7 +51,7 @@ PRESETS: dict[str, dict[str, Any]] = {
     "num_steps_per_env": 24,
     "num_mini_batches": 8,
     "learning_rate": 3.0e-4,
-    "num_learning_epochs": 5,
+    "num_learning_epochs": 3,
     "max_iterations": 4_000,
     "save_interval": 1000,
     "estimated_vram": "~16 - 18 GB",
@@ -62,7 +62,7 @@ PRESETS: dict[str, dict[str, Any]] = {
     "num_steps_per_env": 24,
     "num_mini_batches": 8,
     "learning_rate": 3.0e-4,
-    "num_learning_epochs": 5,
+    "num_learning_epochs": 3,
     "max_iterations": 4_000,
     "save_interval": 1000,
     "estimated_vram": "~26 - 28 GB",
@@ -117,6 +117,12 @@ def parse_args() -> argparse.Namespace:
     action=argparse.BooleanOptionalAction,
     default=True,
     help="Whether to upload model checkpoints (.pt) to W&B on save.",
+  )
+  parser.add_argument(
+    "--upload-only-final",
+    action=argparse.BooleanOptionalAction,
+    default=False,
+    help="Save and upload only the final model checkpoint (model_final.pt) at the end of training.",
   )
   parser.add_argument(
     "--wandb-tags",
@@ -184,8 +190,8 @@ def parse_args() -> argparse.Namespace:
     "--schedule",
     type=str,
     choices=["fixed", "adaptive"],
-    default="adaptive",
-    help="PPO learning rate schedule ('fixed' or 'adaptive'). Defaults to 'adaptive'.",
+    default="fixed",
+    help="PPO learning rate schedule ('fixed' or 'adaptive'). Defaults to 'fixed'.",
   )
   parser.add_argument(
     "--desired-kl",
@@ -331,6 +337,7 @@ def print_training_banner(
   wandb_project: str,
   run_name: str,
   upload_model: bool,
+  upload_only_final: bool,
   video: bool,
   video_final: bool,
   video_only_final: bool,
@@ -374,7 +381,10 @@ def print_training_banner(
     print(f"  Logger                    : Weights & Biases (W&B)")
     print(f"  W&B Project               : {wandb_project}")
     print(f"  Run Display Name          : {run_name}")
-    print(f"  Model Upload to W&B       : {'Enabled (Best & Final policy only)' if upload_model else 'Disabled'}")
+    upload_desc = "Disabled"
+    if upload_model:
+      upload_desc = "Enabled (FINAL policy only)" if upload_only_final else "Enabled (Best & Final policy only)"
+    print(f"  Model Upload to W&B       : {upload_desc}")
   else:
     print(f"  Logger                    : TensorBoard (local only)")
   print("=" * 80 + "\n", flush=True)
@@ -513,6 +523,7 @@ def main() -> None:
     wandb_project=args.wandb_project,
     run_name=run_name,
     upload_model=args.upload_model,
+    upload_only_final=args.upload_only_final,
     video=args.video,
     video_final=args.video_final,
     video_only_final=args.video_only_final,
@@ -520,6 +531,10 @@ def main() -> None:
     video_length=args.video_length,
     gpu_id=args.gpu_id,
   )
+
+  # Configure upload only final model
+  if args.upload_only_final:
+    os.environ["ICUB_UPLOAD_ONLY_FINAL"] = "1"
 
   # Load base configurations
   env_cfg = load_env_cfg(TASK_ID)

@@ -1,43 +1,36 @@
 program: icub_mjlab.scripts.train
-method: bayes  # o 'random' para búsqueda aleatoria
+method: grid
 metric:
   name: Metrics/lift_height/episode_success
   goal: maximize
 
-# Hiperparámetros a explorar y fijos
+# Hiperparámetros fijos y barrido de 4 valores de learning rate (Punto 1)
 parameters:
   preset:
     value: maximum
   schedule:
-    value: adaptive
+    value: fixed
+  num-learning-epochs:
+    value: 3
   max-iterations:
     value: 4000
   save-interval:
-    value: 500
-  # Exploración continua de Learning Rate (escala logarítmica)
+    value: 4000
   learning-rate:
-    distribution: log_uniform_values
-    min: 1.5e-4
-    max: 6.0e-4
+    values:
+      - 0.0001   # 1.0e-4 (conservador / alta estabilidad)
+      - 0.0002   # 2.0e-4 (equilibrio estabilidad-velocidad)
+      - 0.0003   # 3.0e-4 (nominal del paper DextrAH-RGB)
+      - 0.0005   # 5.0e-4 (convergencia rápida)
 
-  # Exploración continua de pesos de recompensa
-  reward-goal-weight:
-    distribution: uniform
-    min: 2.0
-    max: 6.0
-
-  reward-lift-weight:
-    distribution: uniform
-    min: 1.5
-    max: 4.5
-
-
-# Comando que ejecutará el agente con video activado (solo video final)
+# Comando que ejecuta el agente con video y modelo solo al final del entrenamiento
 command:
   - uv
   - run
   - train-icub
   - --video
+  - --video-only-final
+  - --upload-only-final
   - --video-length
   - 500
   - ${args}
