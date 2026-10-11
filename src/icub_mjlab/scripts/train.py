@@ -40,7 +40,7 @@ PRESETS: dict[str, dict[str, Any]] = {
     "num_steps_per_env": 24,
     "num_mini_batches": 4,
     "learning_rate": 3.0e-4,
-    "num_learning_epochs": 3,
+    "num_learning_epochs": 5,
     "max_iterations": 4_000,
     "save_interval": 1000,
     "estimated_vram": "~3 - 4 GB",
@@ -51,7 +51,7 @@ PRESETS: dict[str, dict[str, Any]] = {
     "num_steps_per_env": 24,
     "num_mini_batches": 8,
     "learning_rate": 3.0e-4,
-    "num_learning_epochs": 3,
+    "num_learning_epochs": 5,
     "max_iterations": 4_000,
     "save_interval": 1000,
     "estimated_vram": "~16 - 18 GB",
@@ -62,7 +62,7 @@ PRESETS: dict[str, dict[str, Any]] = {
     "num_steps_per_env": 24,
     "num_mini_batches": 8,
     "learning_rate": 3.0e-4,
-    "num_learning_epochs": 3,
+    "num_learning_epochs": 5,
     "max_iterations": 4_000,
     "save_interval": 1000,
     "estimated_vram": "~26 - 28 GB",
@@ -190,7 +190,7 @@ def parse_args() -> argparse.Namespace:
     "--schedule",
     type=str,
     choices=["fixed", "adaptive"],
-    default="fixed",
+    default="adaptive",
     help="PPO learning rate schedule ('fixed' or 'adaptive'). Defaults to 'fixed'.",
   )
   parser.add_argument(
@@ -210,6 +210,12 @@ def parse_args() -> argparse.Namespace:
     type=float,
     default=None,
     help="Override object_lift reward weight (default in env_cfg is 1.5).",
+  )
+  parser.add_argument(
+    "--reward-lift-beta",
+    type=float,
+    default=None,
+    help="Override object_lift reward beta parameter (default in env_cfg is 50.0).",
   )
   parser.add_argument(
     "--reward-curl-weight",
@@ -549,6 +555,8 @@ def main() -> None:
     env_cfg.rewards["object_to_goal"].weight = args.reward_goal_weight
   if args.reward_lift_weight is not None and "object_lift" in env_cfg.rewards:
     env_cfg.rewards["object_lift"].weight = args.reward_lift_weight
+  if args.reward_lift_beta is not None and "object_lift" in env_cfg.rewards:
+    env_cfg.rewards["object_lift"].params["beta"] = args.reward_lift_beta
   if args.reward_curl_weight is not None and "finger_curl" in env_cfg.rewards:
     env_cfg.rewards["finger_curl"].weight = args.reward_curl_weight
   if args.reward_action_rate_weight is not None and "action_rate_l2" in env_cfg.rewards:

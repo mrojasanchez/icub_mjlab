@@ -237,7 +237,7 @@ def make_lift_cube_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     "object_to_goal": RewardTermCfg(
       func=icub_rewards.object_to_goal_dextrah_reward,
       weight=2.0,
-      params={"beta": 15.0, "min_lift_height": 0.645},
+      params={"beta": 15.0, "min_lift_height": 0.670},
     ),
     "object_lift": RewardTermCfg(
       func=icub_rewards.object_lift_dextrah_reward,

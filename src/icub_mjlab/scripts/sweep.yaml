@@ -4,24 +4,27 @@ metric:
   name: Metrics/lift_height/episode_success
   goal: maximize
 
-# Hiperparámetros fijos y barrido de 4 valores de learning rate (Punto 1)
+# Hiperparámetros de la curva roja y barrido de beta para object_lift (Punto 2)
 parameters:
   preset:
     value: maximum
   schedule:
-    value: fixed
+    value: adaptive
+  desired-kl:
+    value: 0.015
   num-learning-epochs:
-    value: 3
+    value: 5
+  learning-rate:
+    value: 0.0003
   max-iterations:
     value: 4000
   save-interval:
     value: 4000
-  learning-rate:
+  reward-lift-beta:
     values:
-      - 0.0001   # 1.0e-4 (conservador / alta estabilidad)
-      - 0.0002   # 2.0e-4 (equilibrio estabilidad-velocidad)
-      - 0.0003   # 3.0e-4 (nominal del paper DextrAH-RGB)
-      - 0.0005   # 5.0e-4 (convergencia rápida)
+      - 50.0   # Baseline curva roja (gradiente concentrado cerca de la meta)
+      - 40.0   # Punto medio (mayor gradiente a media elevación)
+      - 30.0   # Campana más ancha (fuerte incentivo continuo para ganar altura)
 
 # Comando que ejecuta el agente con video y modelo solo al final del entrenamiento
 command:
