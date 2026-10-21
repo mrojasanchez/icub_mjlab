@@ -7,7 +7,7 @@ import torch
 
 from mjlab.entity import Entity
 from mjlab.tasks.manipulation.mdp.commands import LiftingCommand
-from icub_mjlab.actions.fabric_action import FabricAction
+from icub_mjlab.dextrah_rgb.actions.fabric_action import FabricAction
 
 if TYPE_CHECKING:
   from mjlab.envs import ManagerBasedRlEnv

@@ -15,7 +15,7 @@ from mjlab.utils.lab_api.math import (
   matrix_from_quat,
   quat_from_matrix,
 )
-from icub_mjlab.fabrics.core import GeometricFabricCfg, GeometricFabricSolver
+from icub_mjlab.dextrah_rgb.fabrics.core import GeometricFabricCfg, GeometricFabricSolver
 
 if TYPE_CHECKING:
   from mjlab.entity import Entity

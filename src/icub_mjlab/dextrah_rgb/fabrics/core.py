@@ -9,8 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import torch
 
-from icub_mjlab.fabrics.integrator import DisplacementIntegrator
-from icub_mjlab.fabrics.terms import (
+from icub_mjlab.dextrah_rgb.fabrics.integrator import DisplacementIntegrator
+from icub_mjlab.dextrah_rgb.fabrics.terms import (
   HandSynergyAttractor,
   HandSynergyCfg,
   JointLimitCfg,

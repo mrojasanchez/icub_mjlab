@@ -33,7 +33,7 @@ from icub_mjlab.icub_constants import (
   ICUB_ACTION_SCALE,
   get_icub_robot_cfg,
 )
-from icub_mjlab.actions.fabric_action import FabricActionCfg
+from icub_mjlab.dextrah_rgb.actions.fabric_action import FabricActionCfg
 import icub_mjlab.rewards as icub_rewards
 import icub_mjlab.observations as icub_obs
 

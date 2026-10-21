@@ -1,11 +1,11 @@
 """Geometric Fabrics package for iCub dexterous manipulation."""
 
-from icub_mjlab.fabrics.core import GeometricFabricCfg, GeometricFabricSolver
-from icub_mjlab.fabrics.integrator import (
+from icub_mjlab.dextrah_rgb.fabrics.core import GeometricFabricCfg, GeometricFabricSolver
+from icub_mjlab.dextrah_rgb.fabrics.integrator import (
   DisplacementIntegrator,
   SymplecticEulerIntegrator,
 )
-from icub_mjlab.fabrics.terms import (
+from icub_mjlab.dextrah_rgb.fabrics.terms import (
   HandSynergyAttractor,
   HandSynergyCfg,
   JointLimitCfg,

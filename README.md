@@ -241,16 +241,22 @@ icub_mjlab/
 │       ├── observations.py     # Asymmetric Actor-Critic observation terms
 │       ├── rewards.py          # DextrAH-RGB & FABRIC reward specifications
 │       ├── rl_cfg.py           # PPO runner configuration and recurrent LSTM architectures
+│       ├── rl_runner.py        # Custom RSL-RL runner (model_best.pt tracking & W&B export)
 │       ├── table.xml           # Worktable XML model and textures
-│       ├── actions/
-│       │   └── fabric_action.py # Action manager term for Geometric Fabrics
-│       ├── fabrics/
-│       │   ├── core.py         # Geometric fabric formulations
-│       │   ├── integrator.py   # Numerical integrators
-│       │   └── terms.py        # Attraction, avoidance, and geometry terms
+│       ├── dextrah_rgb/        # Modular Geometric Fabrics & Fabric Action subpackage
+│       │   ├── __init__.py     # Re-exports FabricAction, FabricActionCfg, and Fabric terms
+│       │   ├── actions/
+│       │   │   ├── __init__.py
+│       │   │   └── fabric_action.py # Action manager term for Geometric Fabrics
+│       │   └── fabrics/
+│       │       ├── __init__.py
+│       │       ├── core.py         # Geometric fabric formulations
+│       │       ├── integrator.py   # Numerical integrators
+│       │       └── terms.py        # Attraction, avoidance, and geometry terms
 │       ├── scripts/
 │       │   ├── __init__.py
-│       │   └── train.py        # Training launcher with presets and W&B support
+│       │   ├── sweep.yaml      # Weights & Biases hyperparameter sweep configuration
+│       │   └── train.py        # Training launcher with presets, sweeps, and W&B support
 │       └── assets/             # Submodule with iCub MJCF models, meshes, and textures
 ```
 
