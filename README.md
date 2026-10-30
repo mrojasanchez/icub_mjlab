@@ -150,6 +150,7 @@ uv run play Mjlab-Lift-Cube-iCub --wandb-run-path "entity/project/run_id" --wand
 ```text
 icub_mjlab/
 ├── pyproject.toml              # Package definition and CLI entry points (train-icub)
+├── LICENSE                     # MIT License
 ├── README.md                   # Project documentation
 ├── src/
 │   └── icub_mjlab/
@@ -187,3 +188,26 @@ icub_mjlab/
 - **Reference Papers:**
   - *DextrAH-RGB: Dexterous Manipulation with RGB Vision and Asymmetric RL*
   - *FABRIC: Geometric Fabrics for Fast and Reactive Robot Motion Planning*
+
+---
+
+## 📄 Citation
+
+If you use `icub_mjlab` in your research, please cite:
+
+```bibtex
+@misc{rojas2026icubmjlab,
+  author = {Rojas S{\'a}nchez, Miguel},
+  title = {icub_mjlab: iCub Robot Learning in MuJoCo with mjlab},
+  year = {2026},
+  publisher = {GitHub},
+  url = {https://github.com/mrojasanchez/icub_mjlab}
+}
+```
+
+---
+
+## ⚖️ License
+
+This project is licensed under the [MIT License](LICENSE).
+

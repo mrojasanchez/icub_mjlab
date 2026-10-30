@@ -1,8 +1,9 @@
 [project]
 name = "icub-mjlab"
 version = "0.1.0"
-description = "Add your description here"
+description = "iCub Robot Learning in MuJoCo with mjlab"
 readme = "README.md"
+license = { text = "MIT" }
 authors = [
     { name = "mrojasanchez", email = "mrojasanchez@gmail.com" }
 ]
