@@ -1,0 +1,39 @@
+program: icub_mjlab.scripts.train
+method: grid
+metric:
+  name: Metrics/lift_height/episode_success
+  goal: maximize
+
+# Hiperparámetros de la curva roja y barrido de beta para object_lift (Punto 2)
+parameters:
+  preset:
+    value: maximum
+  schedule:
+    value: adaptive
+  desired-kl:
+    value: 0.015
+  num-learning-epochs:
+    value: 5
+  learning-rate:
+    value: 0.0003
+  max-iterations:
+    value: 4000
+  save-interval:
+    value: 4000
+  reward-lift-beta:
+    values:
+      - 50.0   # Baseline curva roja (gradiente concentrado cerca de la meta)
+      - 40.0   # Punto medio (mayor gradiente a media elevación)
+      - 30.0   # Campana más ancha (fuerte incentivo continuo para ganar altura)
+
+# Comando que ejecuta el agente con video y modelo solo al final del entrenamiento
+command:
+  - uv
+  - run
+  - train-icub
+  - --video
+  - --video-only-final
+  - --upload-only-final
+  - --video-length
+  - 500
+  - ${args}

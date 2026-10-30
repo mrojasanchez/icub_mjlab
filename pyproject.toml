@@ -6,13 +6,15 @@ readme = "README.md"
 authors = [
     { name = "mrojasanchez", email = "mrojasanchez@gmail.com" }
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.10,<3.14"
 dependencies = [
     "mjlab>=1.6.0",
+    "wandb>=0.22.3,<0.29",
 ]
 
 [project.scripts]
 icub-mjlab = "icub_mjlab:main"
+train-icub = "icub_mjlab.scripts.train:main"
 
 [project.entry-points."mjlab.tasks"]
 icub_mjlab = "icub_mjlab"
@@ -20,3 +22,5 @@ icub_mjlab = "icub_mjlab"
 [build-system]
 requires = ["uv_build>=0.12.15,<0.13.0"]
 build-backend = "uv_build"
+
+

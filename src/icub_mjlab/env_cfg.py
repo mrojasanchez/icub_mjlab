@@ -33,6 +33,9 @@ from icub_mjlab.icub_constants import (
   ICUB_ACTION_SCALE,
   get_icub_robot_cfg,
 )
+from icub_mjlab.dextrah_rgb.actions.fabric_action import FabricActionCfg
+import icub_mjlab.rewards as icub_rewards
+import icub_mjlab.observations as icub_obs
 
 _HERE = Path(__file__).parent
 _TABLE_XML = _HERE / "table.xml"
@@ -151,18 +154,17 @@ def make_lift_cube_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   # ==============================================================================
 
   actions: dict[str, ActionTermCfg] = {
-    "joint_pos": JointPositionActionCfg(
+    "fabric": FabricActionCfg(
       entity_name="robot",
-      actuator_names=(".*",),
-      scale=ICUB_ACTION_SCALE,
-      clip=ICUB_ACTION_CLIP,
-      use_default_offset=True,
+      site_name="r_hand_dh_frame_site",
+      delta_pos_scale=0.05,
+      delta_ori_scale=0.1,
     )
   }
 
 
   # ==============================================================================
-  # Observations
+  # Observations (DextrAH Asymmetric Actor-Critic)
   # ==============================================================================
 
   actor_terms = {
@@ -172,88 +174,84 @@ def make_lift_cube_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     ),
     "joint_vel": ObservationTermCfg(
       func=mdp.joint_vel_rel,
-      noise=Unoise(n_min=-1.5, n_max=1.5),
+      noise=Unoise(n_min=-0.1, n_max=0.1),
     ),
-    "ee_to_cube": ObservationTermCfg(
-      func=manipulation_mdp.ee_to_object_distance,
-      params={
-        "object_name": "cube",
-        "asset_cfg": SceneEntityCfg("robot", site_names=("r_hand_dh_frame_site",)),
-      },
+    "hand_keypoints": ObservationTermCfg(
+      func=icub_obs.hand_keypoints_pos,
       noise=Unoise(n_min=-0.01, n_max=0.01),
     ),
-    "cube_to_goal": ObservationTermCfg(
-      func=manipulation_mdp.object_to_goal_distance,
-      params={
-        "object_name": "cube",
-        "command_name": "lift_height",
-      },
+    "cube_pose": ObservationTermCfg(
+      func=icub_obs.object_pose,
       noise=Unoise(n_min=-0.01, n_max=0.01),
+    ),
+    "goal_pos": ObservationTermCfg(
+      func=icub_obs.target_goal_pos,
     ),
     "actions": ObservationTermCfg(func=mdp.last_action),
+    "fabric_state": ObservationTermCfg(
+      func=icub_obs.fabric_state,
+      params={"action_name": "fabric"},
+    ),
   }
 
-  critic_terms = {**actor_terms}
+  critic_terms = {
+    # Clean ground-truth versions of actor observations
+    "joint_pos": ObservationTermCfg(func=mdp.joint_pos_rel),
+    "joint_vel": ObservationTermCfg(func=mdp.joint_vel_rel),
+    "hand_keypoints": ObservationTermCfg(func=icub_obs.hand_keypoints_pos),
+    "cube_pose": ObservationTermCfg(func=icub_obs.object_pose),
+    "goal_pos": ObservationTermCfg(func=icub_obs.target_goal_pos),
+    "actions": ObservationTermCfg(func=mdp.last_action),
+    "fabric_state": ObservationTermCfg(
+      func=icub_obs.fabric_state,
+      params={"action_name": "fabric"},
+    ),
+    # Privileged critic-only observations
+    "cube_velocity": ObservationTermCfg(func=icub_obs.object_velocity),
+    "joint_torques": ObservationTermCfg(func=icub_obs.measured_joint_torques),
+  }
 
   observations = {
     "actor": ObservationGroupCfg(
       terms=actor_terms,
       concatenate_terms=True,
-      enable_corruption=not play,  # Disable corruption in play mode
+      enable_corruption=not play,
     ),
     "critic": ObservationGroupCfg(
-      terms=critic_terms,  # Critic uses same observations
+      terms=critic_terms,
       concatenate_terms=True,
       enable_corruption=False,
     ),
   }
 
   # ==============================================================================
-  # Rewards
+  # Rewards (DextrAH 4 terms + Arm Maintenance)
   # ==============================================================================
 
   rewards = {
-    "lift": RewardTermCfg(
-      func=manipulation_mdp.staged_position_reward,
+    "hand_to_object": RewardTermCfg(
+      func=icub_rewards.hand_to_object_dextrah_reward,
       weight=1.0,
-      params={
-        "command_name": "lift_height",
-        "object_name": "cube",
-        "reaching_std": 0.2,
-        "bringing_std": 0.3,
-        "asset_cfg": SceneEntityCfg("robot", site_names=("r_hand_dh_frame_site",)),
-      },
+      params={"scale": 10.0},
     ),
-    "lift_precise": RewardTermCfg(
-      func=manipulation_mdp.bring_object_reward,
+    "object_to_goal": RewardTermCfg(
+      func=icub_rewards.object_to_goal_dextrah_reward,
+      weight=2.0,
+      params={"beta": 15.0, "min_lift_height": 0.670},
+    ),
+    "object_lift": RewardTermCfg(
+      func=icub_rewards.object_lift_dextrah_reward,
+      weight=1.5,
+      params={"beta": 50.0},
+    ),
+    "finger_curl": RewardTermCfg(
+      func=icub_rewards.finger_curl_regularization_reward,
       weight=1.0,
-      params={
-        "command_name": "lift_height",
-        "object_name": "cube",
-        "std": 0.05,
-      },
+      params={"beta": 0.01},
     ),
     "left_arm_pose": RewardTermCfg(
-      func=mdp.posture,
-      weight=0.5,
-      params={
-        "asset_cfg": SceneEntityCfg("robot", joint_names=("l_.*",)),
-        "std": {"l_.*": 0.2},
-      },
-    ),
-    "action_rate_l2": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.01),
-    "joint_pos_limits": RewardTermCfg(
-      func=mdp.joint_pos_limits,
-      weight=-10.0,
-      params={"asset_cfg": SceneEntityCfg("robot", joint_names=(".*",))},
-    ),
-    "joint_vel_hinge": RewardTermCfg(
-      func=manipulation_mdp.joint_velocity_hinge_penalty,
-      weight=-0.01,
-      params={
-        "max_vel": 0.5,
-        "asset_cfg": SceneEntityCfg("robot", joint_names=(".*",)),
-      },
+      func=icub_rewards.frozen_arm_posture_reward,
+      weight=0.05,
     ),
   }
 
@@ -263,21 +261,44 @@ def make_lift_cube_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 
   terminations = {
     "time_out": TerminationTermCfg(func=mdp.time_out, time_out=True),
-    "ee_ground_collision": TerminationTermCfg(
-      func=manipulation_mdp.illegal_contact,
-      params={"sensor_name": "ee_ground_collision", "force_threshold": 20.0},
+    "cube_dropped": TerminationTermCfg(
+      func=mdp.root_height_below_minimum,
+      params={"minimum_height": 0.50, "asset_cfg": SceneEntityCfg("cube")},
     ),
   }
 
+  # ==============================================================================
+  # Curriculum Learning (DextrAH-RGB Two-Stage Reward Curriculum)
+  # ==============================================================================
+
   curriculum = {
-    "joint_vel_hinge_weight": CurriculumTermCfg(
-      func=manipulation_mdp.reward_curriculum,
+    "hand_to_object_weight": CurriculumTermCfg(
+      func=mdp.reward_curriculum,
       params={
-        "reward_name": "joint_vel_hinge",
+        "reward_name": "hand_to_object",
         "stages": [
-          {"step": 0, "weight": -0.01},
-          {"step": 500 * 24, "weight": -0.1},
-          {"step": 1000 * 24, "weight": -1.0},
+          {"step": 0, "weight": 1.0},
+          {"step": 24_000, "weight": 0.5},
+        ],
+      },
+    ),
+    "object_lift_weight": CurriculumTermCfg(
+      func=mdp.reward_curriculum,
+      params={
+        "reward_name": "object_lift",
+        "stages": [
+          {"step": 0, "weight": 1.5},
+          {"step": 24_000, "weight": 2.0},
+        ],
+      },
+    ),
+    "object_to_goal_weight": CurriculumTermCfg(
+      func=mdp.reward_curriculum,
+      params={
+        "reward_name": "object_to_goal",
+        "stages": [
+          {"step": 0, "weight": 2.0},
+          {"step": 24_000, "weight": 3.0},
         ],
       },
     ),
@@ -447,14 +468,14 @@ def make_lift_cube_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     origin_type=ViewerConfig.OriginType.ASSET_BODY,
     entity_name="robot",
     body_name="chest",
-    distance=2.2,
-    elevation=-10.0,
-    azimuth=150.0,
+    distance=9.0,
+    elevation=-3.0,
+    azimuth=-17.0,
   )
 
   sim_cfg = SimulationCfg(
-    nconmax=500,
-    njmax=2000,
+    nconmax=128,
+    njmax=600,
     mujoco=MujocoCfg(
       timestep=0.005,
       iterations=10,
