@@ -2,228 +2,146 @@
 
 Reinforcement Learning (RL) environment for the **iCub** humanoid robot based on **[mjlab](https://github.com/mujocolab/mjlab)** and accelerated by **MuJoCo Warp** on NVIDIA GPUs.
 
-This repository implements the cube manipulation and lifting task (`Mjlab-Lift-Cube-iCub`), featuring a **Teacher Fabric-Guided Policy (FGP)** inspired by **DextrAH-RGB** and **FABRIC**, built upon Isaac Lab's manager-based design pattern adapted to MuJoCo.
+This repository implements the cube manipulation and lifting task (`Mjlab-Lift-Cube-iCub`), featuring a **Teacher Fabric-Guided Policy (FGP)** inspired by **DextrAH-RGB** and **FABRIC**.
 
 ---
 
 ## 🚀 Prerequisites
 
-- **Operating System:** Linux (tested on Ubuntu 22.04 / 24.04).
-- **GPU:** NVIDIA GPU with CUDA support (e.g., RTX 30/40/50 series).
-- **Git LFS:** [Git Large File Storage](https://git-lfs.com/) installed (required to pull `.stl` 3D CAD mesh assets).
+- **OS:** Linux (Ubuntu 22.04 / 24.04).
+- **GPU:** NVIDIA GPU with CUDA (e.g., RTX 30/40/50 series).
+- **Git LFS:** [Git Large File Storage](https://git-lfs.com/) (required to pull `.stl` 3D CAD meshes).
 - **Package Manager:** [uv](https://docs.astral.sh/uv/) installed.
-- **Framework:** `mjlab` workspace configured.
 
 ---
 
 ## 📦 Installation
 
-1. **Install Git LFS (if not already installed):**
-   ```bash
-   sudo apt install git-lfs
-   git lfs install
-   ```
+```bash
+# 1. Install Git LFS
+sudo apt install git-lfs && git lfs install
 
-2. **Clone this repository with submodules:**
-   ```bash
-   git clone --recurse-submodules https://github.com/mrojasanchez/icub_mjlab.git
-   cd icub_mjlab
-   ```
+# 2. Clone repository with submodules
+git clone --recurse-submodules https://github.com/mrojasanchez/icub_mjlab.git
+cd icub_mjlab
 
-   > **Important (Git LFS Mesh Files):**
-   > The robot meshes (`.stl`) in `src/icub_mjlab/assets` are tracked using Git LFS. If you clone without Git LFS installed, the `.stl` files will only be text pointers (~130 bytes) and simulation will fail to load mesh geometry.
-   > If you already cloned without Git LFS, initialize submodules and fetch the binary mesh files with:
-   > ```bash
-   > git submodule update --init --recursive
-   > git -C src/icub_mjlab/assets lfs pull
-   > ```
+# 3. Install dependencies in editable mode
+uv sync
+uv pip install -e .
+```
 
-3. **Install environment and dependencies using `uv`:**
-   ```bash
-   uv sync
-   uv pip install -e .
-   ```
+> **Tip (Git LFS Mesh Files):**  
+> The robot CAD meshes (`.stl`) in `src/icub_mjlab/assets` are tracked via Git LFS. If meshes fail to load (~130-byte files), run:
+> ```bash
+> git submodule update --init --recursive && git -C src/icub_mjlab/assets lfs pull
+> ```
 
 ---
 
-## 🎮 Simulation and Visualization (Play Mode)
+## 🎮 Interactive Playback (Zero-Shot & Kinematics)
 
-Inspect the scene, kinematics, and initial joint configurations in interactive viewer:
+Visualize the scene, kinematics, and initial joint configurations in the interactive viewer:
 
-- **Robot in rest position (Home Pose):**
-  ```bash
-  uv run play Mjlab-Lift-Cube-iCub --agent zero
-  ```
+```bash
+# Rest position (Home Pose)
+uv run play Mjlab-Lift-Cube-iCub --agent zero
 
-- **Robot with random actions:**
-  ```bash
-  uv run play Mjlab-Lift-Cube-iCub --agent random
-  ```
+# Random actions
+uv run play Mjlab-Lift-Cube-iCub --agent random
 
-- **Render a single environment:**
-  ```bash
-  uv run play Mjlab-Lift-Cube-iCub --agent zero --num-envs 1
-  ```
+# Single environment
+uv run play Mjlab-Lift-Cube-iCub --agent zero --num-envs 1
+```
 
 ---
 
 ## 🏋️ Training the Policy
 
-Training is executed via the custom training launcher script in [`src/icub_mjlab/scripts/train.py`](src/icub_mjlab/scripts/train.py) or via the registered CLI command `train-icub`.
+Training is executed with the `train-icub` CLI entry point (or `python -m icub_mjlab.scripts.train`).
 
 ### 1. Hardware Presets (`--preset`)
 
-The script provides optimized configurations for different GPU memory tiers:
+| Preset | Target Hardware / Purpose | Envs (`num_envs`) | Mini-batches | VRAM Footprint |
+| :--- | :--- | :---: | :---: | :---: |
+| **`recommended`** *(Default)* | **RTX 5090 32GB** (sweet spot: speed & stability) | **2048** | **8** | **~16 – 18 GB** |
+| **`maximum`** | **RTX 5090 32GB** (maximum throughput) | **4096** | **8** | **~26 – 28 GB** |
+| **`base`** | Low VRAM / Rapid Debugging | **64** | **4** | **~3 – 4 GB** |
 
-| Preset | Target Hardware / Purpose | Envs (`num_envs`) | Batch / Iter | Mini-batches | VRAM Footprint |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| **`recommended`** *(Default)* | **RTX 5090 32GB** (optimal stability & speed) | **2048** | **49,152** | **4** (12,288 ea.) | **~16 – 18 GB** |
-| **`maximum`** | **RTX 5090 32GB** (maximum throughput) | **4096** | **98,304** | **8** (12,288 ea.) | **~26 – 28 GB** |
-| **`base`** | Debugging / low-memory GPUs | **64** | **1,536** | **4** (384 ea.) | **~3 – 4 GB** |
+### 2. Launch Training
 
-> **Note:** The `maximum` preset scales mini-batches to 8 to keep the recurrent BPTT memory buffer of the 2048-dim Critic LSTM safe within 32 GB VRAM while doubling parallel physics simulation.
-
-### 2. Training Commands
-
-#### A. Launch with the Recommended Preset (RTX 5090)
 ```bash
-uv run train-icub --preset recommended
-```
-*Or using standard python execution:*
-```bash
-uv run python -m icub_mjlab.scripts.train --preset recommended
+# Default run with recommended preset (RTX 5090)
+uv run train-icub --preset recommended --run-name my_experiment
+
+# Maximum throughput preset (4096 envs)
+uv run train-icub --preset maximum --run-name dextrah_max
+
+# Debug / low VRAM
+uv run train-icub --preset base --no-wandb
 ```
 
-#### B. Launch with the Maximum Preset (4096 Parallel Envs)
-```bash
-uv run train-icub --preset maximum --run-name dextrah_5090_max
-```
+### 3. Checkpoints, W&B Logging & Video Recording
 
-#### C. Launch with the Base Preset (Quick Debugging)
-```bash
-uv run train-icub --preset base
-```
-
----
-
-### 3. Weights & Biases (W&B) Logging & Model Upload
-
-By default, training metrics and neural network checkpoints (`.pt`) are automatically logged and uploaded to Weights & Biases:
-
-- **Custom project and run name:**
+- **Automatic Best Model Tracking:** The runner automatically tracks the highest success rate (`Metrics/lift_height/episode_success`), continuously saving and uploading `model_best.pt` to Weights & Biases.
+- **Storage-Friendly Sweeps & Runs:**
+  - `--video`: Enables headless rollout recording.
+  - `--video-only-final`: Records video only at the end of training (avoids exhausting cloud storage).
+  - `--upload-only-final`: Saves and uploads only the final model and `model_best.pt`.
+- **Resuming Checkpoints:**
   ```bash
-  uv run train-icub --preset recommended --wandb-project icub-dextrah --run-name dextrah_exp_01
-  ```
-
-- **Run offline (sync logs to W&B later):**
-  ```bash
-  uv run train-icub --preset recommended --wandb-mode offline
-  ```
-
-- **Disable W&B (fallback to local TensorBoard):**
-  ```bash
-  uv run train-icub --preset base --no-wandb
-  ```
-
----
-
-### 4. Periodic Video Logging to Weights & Biases
-
-You can periodically record policy rollouts during training and have them automatically uploaded to the Weights & Biases dashboard:
-
-- `--video`: Enables headless offscreen video recording.
-- `--video-interval <steps>`: Environment step frequency for recordings. In RSL-RL, each learning iteration executes `num_steps_per_env = 24` steps:
-  - Every **50 iterations**: `--video-interval 1200` ($50 \times 24 = 1200$).
-  - Every **1000 iterations**: `--video-interval 24000` ($1000 \times 24 = 24000$).
-- `--video-length <steps>`: Length of the recorded video in steps (e.g., `250` steps = 5 seconds of simulated time at 50 Hz).
-
-**Example (record video every 1000 iterations):**
-```bash
-uv run train-icub \
-  --preset recommended \
-  --wandb-project icub-dextrah \
-  --run-name dextrah_exp_01 \
-  --video \
-  --video-interval 24000 \
-  --video-length 250
-```
-
-> **Note:** Recorded MP4 videos are saved locally to `logs/rsl_rl/.../videos/train/` and automatically synced to the Weights & Biases dashboard under the **Media / Video** panel with an interactive timeline scrubber across training iterations.
-
----
-
-### 5. Custom Overrides and Resuming Checkpoints
-
-You can override hyperparameters from the CLI or resume training at any point:
-
-- **Override iterations, save interval, or target GPU:**
-  ```bash
-  uv run train-icub --preset recommended --max-iterations 20000 --save-interval 100 --gpu-id 0
-  ```
-
-- **Resume training from the latest local checkpoint:**
-  ```bash
+  # Resume latest local checkpoint
   uv run train-icub --preset recommended --resume
+
+  # Resume from Weights & Biases cloud artifact
+  uv run train-icub --preset recommended --resume --wandb-run-path "entity/project/run_id" --wandb-checkpoint-name model_best.pt
   ```
 
-- **Resume training from a specific local checkpoint file:**
-  ```bash
-  uv run train-icub --preset recommended --resume --load-checkpoint model_2000.pt
-  ```
+---
 
-- **Resume training downloading directly from Weights & Biases:**
-  ```bash
-  uv run train-icub --preset recommended --resume --wandb-run-path "entity/icub-dextrah/run_id" --wandb-checkpoint-name model_2000.pt
-  ```
+## 🔬 Hyperparameter Sweeps (Weights & Biases)
 
-- **Standard mjlab training command (alternative):**
-  ```bash
-  uv run train Mjlab-Lift-Cube-iCub
-  ```
+Grid and Bayesian hyperparameter sweeps are configured via [`src/icub_mjlab/scripts/sweep.yaml`](src/icub_mjlab/scripts/sweep.yaml).
+
+### 1. Initialize the Sweep
+Register the sweep configuration on Weights & Biases:
+```bash
+uv run wandb sweep src/icub_mjlab/scripts/sweep.yaml --project icub-dextrah
+```
+This generates a sweep path, for example: `wandb agent <entity>/icub-dextrah/abc123xyz`.
+
+### 2. Run the Sweep Agent
+Launch the agent to execute trials on your GPU:
+```bash
+# Run all combinations in the sweep
+uv run wandb agent <entity>/icub-dextrah/<sweep_id>
+
+# Run a limited number of trials on this machine
+uv run wandb agent <entity>/icub-dextrah/<sweep_id> --count 3
+```
+
+> **Note:** `sweep.yaml` enables `--video-only-final` and `--upload-only-final` by default, ensuring full metric telemetry in W&B while keeping storage overhead minimal across dozens of runs.
 
 ---
 
 ## 🔍 Policy Evaluation and Playback
 
-Once training is complete (or to inspect intermediate checkpoints), evaluate and visualize the trained policy in the interactive MuJoCo viewer using the `play` CLI:
+Evaluate and visualize trained policies using the `play` CLI:
 
-### 1. Play from a Local Checkpoint
-Load a specific model checkpoint to inspect behavior in real-time:
 ```bash
-uv run play Mjlab-Lift-Cube-iCub --checkpoint-file logs/rsl_rl/dextrah_teacher_fgp/<run_folder>/model_10000.pt
+# Play from a local checkpoint
+uv run play Mjlab-Lift-Cube-iCub --checkpoint-file logs/rsl_rl/dextrah_teacher_fgp/<run>/model_best.pt
+
+# Play directly from Weights & Biases
+uv run play Mjlab-Lift-Cube-iCub --wandb-run-path "entity/project/run_id" --wandb-checkpoint-name model_best.pt
 ```
 
-### 2. Play Directly from Weights & Biases
-Visualize any run logged to W&B without needing local checkpoint files:
-```bash
-uv run play Mjlab-Lift-Cube-iCub \
-  --wandb-run-path entity/icub-dextrah/run_id \
-  --wandb-checkpoint-name model_10000.pt
-```
+### Evaluation Options
 
-### 3. Evaluation and Visualization Options
-
-- **Interactive Viewer Backends:**
-  - Native GLFW viewer (default, high-performance):
-    ```bash
-    uv run play Mjlab-Lift-Cube-iCub --checkpoint-file <path_to_model.pt> --viewer native
-    ```
-  - Web-based [Viser](https://github.com/nerfstudio-project/viser) visualizer (browser-accessible):
-    ```bash
-    uv run play Mjlab-Lift-Cube-iCub --checkpoint-file <path_to_model.pt> --viewer viser
-    ```
-
-- **Multi-Environment Visualization:**
-  Evaluate policy robustness across multiple parallel environments simultaneously:
-  ```bash
-  uv run play Mjlab-Lift-Cube-iCub --checkpoint-file <path_to_model.pt> --num-envs 16
-  ```
-
-- **Record Evaluation Videos:**
-  Render and save high-resolution evaluation videos to disk (`<log_dir>/videos/play/`):
-  ```bash
-  uv run play Mjlab-Lift-Cube-iCub --checkpoint-file <path_to_model.pt> --video --video-length 500
-  ```
+| Option | Command Flag | Description |
+| :--- | :--- | :--- |
+| **Viewer Backend** | `--viewer viser` / `--viewer native` | Web-based interactive viewer ([Viser](https://viser.studio)) or native GLFW. |
+| **Parallel Envs** | `--num-envs 16` | Render multiple environments simultaneously to test robustness. |
+| **Record Video** | `--video --video-length 500` | Render an offscreen evaluation video saved to `<log_dir>/videos/play/`. |
 
 ---
 
@@ -264,8 +182,8 @@ icub_mjlab/
 
 ## 📜 References and Acknowledgments
 
-- **iCub Robot Model:** Geometries and meshes provided by [CAMADA-UTFSM/icub_mj_model](https://github.com/CAMADA-UTFSM/icub_mj_model).
-- **Framework:** Developed using [mjlab](https://github.com/mujocolab/mjlab) and MuJoCo Warp.
+- **iCub Robot Model:** Geometries and meshes from [CAMADA-UTFSM/icub_mj_model](https://github.com/CAMADA-UTFSM/icub_mj_model).
+- **Framework:** Built on [mjlab](https://github.com/mujocolab/mjlab) and MuJoCo Warp.
 - **Reference Papers:**
   - *DextrAH-RGB: Dexterous Manipulation with RGB Vision and Asymmetric RL*
   - *FABRIC: Geometric Fabrics for Fast and Reactive Robot Motion Planning*
